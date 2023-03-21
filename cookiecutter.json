@@ -1,0 +1,4 @@
+{
+  "project_slug": "demo_server",
+  "_copy_without_render": ["*.html"]
+}

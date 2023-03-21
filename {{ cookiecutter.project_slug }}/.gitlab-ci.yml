@@ -1,0 +1,7 @@
+include:
+    - project: "rcrai/rdm"
+      file: "gitlab-ci-common/common.yaml"
+      ref: main
+    - project: "rcrai/rdm"
+      file: "gitlab-ci-common/voc-deploy.yaml"
+      ref: main

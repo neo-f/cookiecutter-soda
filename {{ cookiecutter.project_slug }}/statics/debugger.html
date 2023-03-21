@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>DEBUGGER</title>
+		<script src="https://cdn.tailwindcss.com/"></script>
+	</head>
+
+	<body>
+		<div id="app">
+			<nav class="fixed z-30 w-full bg-white border-b-2 border-indigo-600">
+				<div class="py-3 px-6">
+					<div class="flex justify-between items-center">
+						<div class="flex justify-start items-center">
+							<span class="flex items-center text-xl font-bold text-blue-800">DEBUGGER</span>
+						</div>
+						<div class="flex items-center">
+							<div class="hidden relative mt-1 mr-6 lg:block lg:w-64">
+								<div class="flex absolute inset-y-0 left-0 items-center pl-3">
+									<svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+										<path
+											fill-rule="evenodd"
+											d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+											clip-rule="evenodd"
+										></path>
+									</svg>
+								</div>
+								<input
+									type="text"
+									name="name"
+									class="block p-2.5 pl-10 w-full text-gray-900 rounded-lg border sm:text-sm focus:ring-1 focus:outline-none"
+									v-model="filter"
+									placeholder="搜索"
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
+			</nav>
+			<div class="pt-12 lg:flex">
+				<div class="flex overflow-y-auto flex-col py-8 px-4 border-b lg:h-screen lg:border-r w-128">
+					<div class="flex flex-col justify-between mt-6">
+						<aside>
+							<ul>
+								<li v-for="func in filterdFuncs">
+									<a
+										@click="handleClickFunc(func)"
+										:class="{ 'bg-indigo-600 text-white': func === selectedFunc }"
+										class="flex items-center py-2 px-4 text-gray-700 bg-gray-100 rounded-md"
+										href="#"
+									>
+										<span class="mx-4 font-medium">{{ func.title }}</span>
+									</a>
+								</li>
+							</ul>
+						</aside>
+					</div>
+				</div>
+				<div class="overflow-y-auto p-8 w-full h-full">
+					<p class="flex flex-col mb-8 text-xl">{{ selectedFunc.description }}</p>
+					<form @submit="handleClickSubmit">
+						<div class="grid gap-6 mb-6 md:grid-cols-2">
+							<div v-for="param in selectedParameters">
+								<label :for="selectedFuncName+param.name" class="block mb-2 text-sm font-medium text-gray-900"> {{ param.description }}</label>
+								<input
+									type="text"
+									:id="selectedFuncName+param.name"
+									class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+									v-model="currentParameters[param.name]"
+									:placeholder="param.description"
+									:required="param.required"
+									required
+								/>
+							</div>
+						</div>
+						<button
+							type="submit"
+							class="py-2.5 px-5 w-full text-sm font-medium text-center text-white bg-blue-700 rounded-lg sm:w-auto hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 focus:outline-none"
+						>
+							执行
+						</button>
+					</form>
+					<div class="p-4 mt-8 border-2">
+						<div>
+							<input
+								class="px-5 my-4 w-full h-10 text-gray-900 rounded-lg border sm:text-sm focus:ring-1 focus:outline-none"
+								type="text"
+								name="dynamicfilter"
+								v-model="jsonFilter"
+								placeholder="Javascript Query, use 'it' to refer to the response"
+							/>
+						</div>
+						<pre @click="copyResponse"> {{ JSON.stringify(filteredResult, null, 2) }} </pre>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
+	<script type="module" lang="js">
+		import { createApp } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
+		const unsecuredCopyToClipboard = (text) => {
+			const textArea = document.createElement("textarea");
+			textArea.value = text;
+			document.body.appendChild(textArea);
+			textArea.focus();
+			textArea.select();
+			try {
+				document.execCommand("copy");
+			} catch (err) {
+				console.error("Unable to copy to clipboard", err);
+			}
+			document.body.removeChild(textArea);
+		};
+
+		createApp({
+			data: () => {
+				return {
+					jsonFilter: "",
+					funcs: [],
+					selectedFuncName: undefined,
+					filter: "",
+					currentParameters: {},
+					result: undefined,
+				};
+			},
+			async mounted() {
+				const functionsUrl = window.location.href.replace("debugger", "debugger/functions");
+				let resp = await fetch(functionsUrl);
+				this.funcs = (await resp.json()).data;
+			},
+
+			computed: {
+				selectedFunc() {
+					let filterd = this.funcs.filter((f) => f.name == this.selectedFuncName) || [];
+					return (filterd && filterd[0]) || {};
+				},
+				filterdFuncs() {
+					return this.funcs.filter((f) => f.name.includes(this.filter) || f.title.includes(this.filter) || f.description.includes(this.filter));
+				},
+				selectedParameters() {
+					return this.selectedFunc.parameters;
+				},
+
+				filteredResult() {
+					if (this.jsonFilter) {
+						try {
+							return eval(this.jsonFilter);
+						} catch {
+							return this.result;
+						}
+					} else {
+						return this.result;
+					}
+				},
+			},
+			methods: {
+				handleClickFunc(message, event) {
+					event && event.preventDefault();
+					this.selectedFuncName = message.name;
+					this.currentParameters = {};
+					for (let param of this.selectedParameters) {
+						this.currentParameters[param.name] = window.localStorage.getItem(`debugger_${param.name}`) || "";
+					}
+				},
+				async copyResponse() {
+					if (this.result) {
+						const content = JSON.stringify(this.filteredResult, null, 2);
+						if (window.isSecureContext && navigator.clipboard) {
+							navigator.clipboard.writeText(content);
+						} else {
+							unsecuredCopyToClipboard(content);
+						}
+					}
+				},
+				async handleClickSubmit(event) {
+					this.result = undefined;
+					event && event.preventDefault();
+					for (let key in this.currentParameters) {
+						window.localStorage.setItem(`debugger_${key}`, this.currentParameters[key]);
+					}
+					let executeUrl = window.location.href.replace("debugger", "debugger/execute");
+					let resp = await fetch(executeUrl, {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Debug_Kylin: "true",
+						},
+						body: JSON.stringify({
+							func: this.selectedFuncName,
+							params: this.currentParameters,
+						}),
+					});
+					this.result = await resp.json();
+					const obj = JSON.parse(JSON.stringify(this.result.data));
+					console.log(obj);
+					window.it = obj;
+				},
+			},
+		}).mount("#app");
+	</script>
+</html>
